@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/event_card.dart';
 import '../auth/login_screen.dart';
 import '../profile/profile_screen.dart';
+import 'calendar_screen.dart';
 import 'event_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -75,6 +76,14 @@ class _HomeScreenState extends State<HomeScreen>
       appBar: AppBar(
         title: const Text('Event Kampus'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Kalender Event',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CalendarScreen()),
+            ).then((_) => _loadEvents()),
+          ),
           IconButton(
             icon: const Icon(Icons.person_outline),
             onPressed: () => Navigator.push(
