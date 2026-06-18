@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\assets\\\\images\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\database\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\models\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\providers\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\screens\\\\auth\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\screens\\\\home\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\screens\\\\profile\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\screens\\\\admin\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\widgets\")",
+      "PowerShell(& \"D:\\\\Flutter\\\\flutter\\\\bin\\\\flutter.bat\" pub get 2>&1)",
+      "Bash(flutter pub *)",
+      "Bash(find /c/flutter /d/Flutter -name \"flutter\" -type f 2>/dev/null | head -5)",
+      "Read(//c//**)",
+      "Bash(/d/Flutter/bin/flutter pub *)"
+    ]
+  }
+}
