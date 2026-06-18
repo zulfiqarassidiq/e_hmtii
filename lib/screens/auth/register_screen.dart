@@ -115,7 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _buildLabel('NPM'),
                 TextFormField(
                   controller: _npmCtrl,
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
                     hintText: 'Contoh: 2021001001',

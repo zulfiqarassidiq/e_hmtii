@@ -174,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _npmCtrl,
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
                     hintText: 'Masukkan NPM Anda',
