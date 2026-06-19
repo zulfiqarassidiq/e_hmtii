@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class EventModel {
   final String idEvent;
   final String namaEvent;
@@ -19,35 +21,38 @@ class EventModel {
     this.deskripsi = '',
   });
 
-  /// True jika saat ini sedang berlangsung (sudah mulai & belum selesai).
   bool get isOngoing => DateTime.now().isBefore(tanggalSelesai);
 
-  /// True jika benar-benar berjalan: mulai <= now <= selesai.
   bool get isReallyOngoing {
     final now = DateTime.now();
     return now.isAfter(tanggalMulai) && now.isBefore(tanggalSelesai);
   }
 
-  factory EventModel.fromMap(Map<String, dynamic> map) => EventModel(
-        idEvent: map['id_event'] as String,
-        namaEvent: map['nama_event'] as String,
-        tanggalMulai: DateTime.parse(map['tanggal_mulai'] as String),
-        tanggalSelesai: DateTime.parse(map['tanggal_selesai'] as String),
-        kuota: map['kuota'] as int,
-        lokasi: map['lokasi'] as String,
-        foto: (map['foto'] as String?) ?? '',
-        deskripsi: (map['deskripsi'] as String?) ?? '',
-      );
+  // ── Firestore ──────────────────────────────────────────────────────────────
 
-  Map<String, dynamic> toMap() => {
-        'id_event': idEvent,
+  factory EventModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return EventModel(
+      idEvent: doc.id,
+      namaEvent: d['nama_event'] as String,
+      tanggalMulai: (d['tanggal_mulai'] as Timestamp).toDate(),
+      tanggalSelesai: (d['tanggal_selesai'] as Timestamp).toDate(),
+      kuota: d['kuota'] as int,
+      lokasi: d['lokasi'] as String,
+      foto: (d['foto'] as String?) ?? '',
+      deskripsi: (d['deskripsi'] as String?) ?? '',
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
         'nama_event': namaEvent,
-        'tanggal_mulai': tanggalMulai.toIso8601String(),
-        'tanggal_selesai': tanggalSelesai.toIso8601String(),
+        'tanggal_mulai': Timestamp.fromDate(tanggalMulai),
+        'tanggal_selesai': Timestamp.fromDate(tanggalSelesai),
         'kuota': kuota,
         'lokasi': lokasi,
         'foto': foto,
         'deskripsi': deskripsi,
+        // peserta_count dikelola via FieldValue.increment di firebase_service
       };
 
   EventModel copyWith({

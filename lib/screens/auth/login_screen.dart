@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../database/database_helper.dart';
+import '../../widgets/firestore_setup_banner.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
 import 'admin_login_screen.dart';
@@ -142,14 +143,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     children: [
                       Container(
-                        width: 80,
-                        height: 80,
+                        width: 110,
+                        height: 110,
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(Icons.event,
-                            color: Colors.white, size: 44),
+                        clipBehavior: Clip.antiAlias,
+                        child: Image.asset(
+                          'assets/images/hmti_logo.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, e) => Container(
+                            color: Colors.red,
+                            child: const Icon(Icons.event,
+                                color: Colors.white, size: 44),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       const Text('Event Kampus',
@@ -271,6 +280,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                // Firebase connection banner
+                const FirestoreSetupBanner(),
+                const SizedBox(height: 8),
 
                 // Admin login
                 SizedBox(

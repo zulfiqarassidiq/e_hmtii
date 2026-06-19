@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
-import '../home/home_screen.dart';
+import '../../widgets/firestore_setup_banner.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -54,25 +54,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
+      Navigator.pop(context); // kembali ke LoginScreen
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Registrasi berhasil! Silakan login.'),
           backgroundColor: Colors.green,
         ),
       );
-      // Auto-login after register
-      final loginSuccess =
-          await auth.loginUser(user.npm, user.password);
-      if (!mounted) return;
-      if (loginSuccess) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (route) => false,
-        );
-      } else {
-        Navigator.pop(context);
-      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -269,6 +257,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 8),
+                const FirestoreSetupBanner(),
               ],
             ),
           ),

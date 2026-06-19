@@ -1,7 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import '../models/user_model.dart';
+import '../firebase/firebase_service.dart';
 import '../models/admin_model.dart';
-import '../database/database_helper.dart';
+import '../models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
@@ -9,12 +10,36 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // null  = belum dicek / berhasil konek
+  // kode  = FirebaseException.code (e.g. 'unavailable', 'permission-denied')
+  String? _firestoreStatus;
+  bool _checkingConnection = true;
+
   UserModel? get currentUser => _currentUser;
   AdminModel? get currentAdmin => _currentAdmin;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isUserLoggedIn => _currentUser != null;
   bool get isAdminLoggedIn => _currentAdmin != null;
+  String? get firestoreStatus => _firestoreStatus;
+  bool get checkingConnection => _checkingConnection;
+  bool get isFirestoreOk => !_checkingConnection && _firestoreStatus == null;
+
+  AuthProvider() {
+    _runConnectionCheck();
+  }
+
+  Future<void> _runConnectionCheck() async {
+    _checkingConnection = true;
+    notifyListeners();
+    _firestoreStatus = await FirebaseService.instance.testConnection();
+    _checkingConnection = false;
+    notifyListeners();
+  }
+
+  Future<void> retryConnection() async {
+    await _runConnectionCheck();
+  }
 
   void _setLoading(bool val) {
     _isLoading = val;
@@ -31,27 +56,55 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _parseFirebaseError(FirebaseException e) {
+    switch (e.code) {
+      case 'unavailable':
+        return 'Firestore tidak bisa dijangkau.\n'
+            'Kemungkinan Firestore Database belum diaktifkan di Firebase Console, '
+            'atau Security Rules memblokir akses.';
+      case 'permission-denied':
+        return 'Akses ditolak. Periksa Firestore Security Rules di Firebase Console.';
+      case 'not-found':
+        return 'Data tidak ditemukan.';
+      case 'already-exists':
+        return 'Data sudah ada.';
+      case 'deadline-exceeded':
+        return 'Koneksi timeout. Coba lagi.';
+      case 'unauthenticated':
+        return 'Sesi tidak valid. Silakan login ulang.';
+      case 'no-app':
+        return 'Firebase belum dikonfigurasi. Jalankan flutterfire configure.';
+      default:
+        return 'Firebase error [${e.code}]: ${e.message}';
+    }
+  }
+
   // ─── LOGIN USER ──────────────────────────────────────────────────────────────
 
   Future<bool> loginUser(String npm, String password) async {
     _setLoading(true);
     _setError(null);
+    bool result = false;
     try {
-      final user = await DatabaseHelper.instance.loginUser(npm, password);
+      final user = await FirebaseService.instance.loginUser(npm, password);
       if (user != null) {
         _currentUser = user;
-        _setLoading(false);
-        return true;
+        result = true;
       } else {
         _setError('NPM atau password salah.');
-        _setLoading(false);
-        return false;
       }
+    } on FirebaseException catch (e) {
+      _setError(_parseFirebaseError(e));
     } catch (e) {
+      // Menangkap SEMUA throwable (termasuk Error, bukan hanya Exception)
+      // sehingga _isLoading di blok finally PASTI ter-reset ke false.
       _setError('Terjadi kesalahan: $e');
+      debugPrint('loginUser error: $e');
+    } finally {
+      // SELALU dijalankan — tombol pasti kembali ke state normal
       _setLoading(false);
-      return false;
     }
+    return result;
   }
 
   // ─── REGISTER USER ───────────────────────────────────────────────────────────
@@ -59,21 +112,19 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> registerUser(UserModel user) async {
     _setLoading(true);
     _setError(null);
+    bool result = false;
     try {
-      final existing = await DatabaseHelper.instance.getUserByNpm(user.npm);
-      if (existing != null) {
-        _setError('NPM sudah terdaftar.');
-        _setLoading(false);
-        return false;
-      }
-      await DatabaseHelper.instance.insertUser(user);
-      _setLoading(false);
-      return true;
+      await FirebaseService.instance.registerUser(user);
+      result = true;
+    } on FirebaseException catch (e) {
+      _setError(_parseFirebaseError(e));
     } catch (e) {
-      _setError('Registrasi gagal: $e');
+      _setError(e.toString().replaceFirst('Exception: ', ''));
+      debugPrint('registerUser error: $e');
+    } finally {
       _setLoading(false);
-      return false;
     }
+    return result;
   }
 
   // ─── LOGIN ADMIN ─────────────────────────────────────────────────────────────
@@ -81,33 +132,39 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> loginAdmin(String idAdmin, String password) async {
     _setLoading(true);
     _setError(null);
+    bool result = false;
     try {
-      final admin = await DatabaseHelper.instance.loginAdmin(idAdmin, password);
+      final admin = await FirebaseService.instance.loginAdmin(idAdmin, password);
       if (admin != null) {
         _currentAdmin = admin;
-        _setLoading(false);
-        return true;
+        result = true;
       } else {
         _setError('ID Admin atau password salah.');
-        _setLoading(false);
-        return false;
       }
+    } on FirebaseException catch (e) {
+      _setError(_parseFirebaseError(e));
     } catch (e) {
       _setError('Terjadi kesalahan: $e');
+      debugPrint('loginAdmin error: $e');
+    } finally {
       _setLoading(false);
-      return false;
     }
+    return result;
   }
 
   // ─── REFRESH USER ────────────────────────────────────────────────────────────
 
   Future<void> refreshUser() async {
     if (_currentUser == null) return;
-    final updated =
-        await DatabaseHelper.instance.getUserByNpm(_currentUser!.npm);
-    if (updated != null) {
-      _currentUser = updated;
-      notifyListeners();
+    try {
+      final updated =
+          await FirebaseService.instance.getUserByNpm(_currentUser!.npm);
+      if (updated != null) {
+        _currentUser = updated;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Refresh gagal (offline/error) — tetap pakai data sesi saat ini
     }
   }
 

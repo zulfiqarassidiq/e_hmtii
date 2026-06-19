@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../database/database_helper.dart';
+import '../../firebase/firebase_service.dart';
 import '../../models/event_model.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
@@ -17,32 +19,7 @@ class AdminHomeScreen extends StatefulWidget {
 }
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
-  List<EventModel> _events = [];
-  Map<String, int> _pesertaCounts = {};
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final events = await DatabaseHelper.instance.getAllEvents();
-    final counts = <String, int>{};
-    for (final e in events) {
-      counts[e.idEvent] =
-          await DatabaseHelper.instance.getPesertaCount(e.idEvent);
-    }
-    if (mounted) {
-      setState(() {
-        _events = events;
-        _pesertaCounts = counts;
-        _isLoading = false;
-      });
-    }
-  }
+  // State hanya untuk dialog — data event & peserta sudah real-time via Stream.
 
   void _logout() {
     context.read<AuthProvider>().logoutAdmin();
@@ -57,10 +34,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // ─── Helper: pilih tanggal DAN jam sekaligus ─────────────────────────────────
 
-  Future<DateTime?> _pickDateTime(
-    BuildContext ctx,
-    DateTime initial,
-  ) async {
+  Future<DateTime?> _pickDateTime(BuildContext ctx, DateTime initial) async {
     final date = await showDatePicker(
       context: ctx,
       initialDate: initial,
@@ -73,8 +47,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
     );
     if (date == null) return null;
-
     if (!ctx.mounted) return null;
+
     final time = await showTimePicker(
       context: ctx,
       initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
@@ -92,22 +66,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   // ─── Dialog tambah / edit event ──────────────────────────────────────────────
 
   void _showEventDialog(EventModel? existing) {
-    final idCtrl = TextEditingController(text: existing?.idEvent ?? '');
     final namaCtrl = TextEditingController(text: existing?.namaEvent ?? '');
     final lokasiCtrl = TextEditingController(text: existing?.lokasi ?? '');
     final kuotaCtrl =
         TextEditingController(text: existing?.kuota.toString() ?? '');
-    final fotoCtrl = TextEditingController(text: existing?.foto ?? '');
     final deskripsiCtrl =
         TextEditingController(text: existing?.deskripsi ?? '');
 
     DateTime mulai =
         existing?.tanggalMulai ?? DateTime.now().add(const Duration(days: 1));
-    DateTime selesai = existing?.tanggalSelesai ??
-        DateTime.now().add(const Duration(days: 2));
+    DateTime selesai =
+        existing?.tanggalSelesai ?? DateTime.now().add(const Duration(days: 2));
+
+    XFile? pickedImage;
+    String existingFotoUrl = existing?.foto ?? '';
+    bool uploading = false;
 
     final formKey = GlobalKey<FormState>();
     final dateFormat = DateFormat('dd MMM yyyy  HH:mm');
+    final picker = ImagePicker();
 
     showDialog(
       context: context,
@@ -127,19 +104,97 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _dialogField(idCtrl, 'ID Event',
-                      enabled: existing == null),
                   _dialogField(namaCtrl, 'Nama Event'),
                   _dialogField(lokasiCtrl, 'Lokasi'),
                   _dialogField(kuotaCtrl, 'Kuota',
                       keyboard: TextInputType.number),
-                  _dialogField(fotoCtrl, 'URL Foto (opsional)',
-                      required: false),
                   _dialogField(deskripsiCtrl, 'Deskripsi Event',
                       required: false, maxLines: 3),
                   const SizedBox(height: 12),
 
-                  // Date + Time picker — Mulai
+                  // ── Image Picker ────────────────────────────────────────
+                  GestureDetector(
+                    onTap: uploading
+                        ? null
+                        : () async {
+                            final img = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              imageQuality: 75,
+                              maxWidth: 1200,
+                            );
+                            if (img != null) {
+                              setDialogState(() => pickedImage = img);
+                            }
+                          },
+                    child: Container(
+                      height: 130,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF252525),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: pickedImage != null
+                              ? Colors.red
+                              : const Color(0xFF444444),
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: pickedImage != null
+                          ? Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.file(File(pickedImage!.path),
+                                    fit: BoxFit.cover),
+                                Positioned(
+                                  bottom: 6,
+                                  right: 6,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text('Ganti',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11)),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : existingFotoUrl.isNotEmpty
+                              ? Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.network(existingFotoUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, e) =>
+                                            _photoPlaceholder()),
+                                    Positioned(
+                                      bottom: 6,
+                                      right: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: const Text('Ganti',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11)),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : _photoPlaceholder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
                   _DateTimePickerRow(
                     label: 'Mulai',
                     value: dateFormat.format(mulai),
@@ -151,8 +206,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     },
                   ),
                   const SizedBox(height: 8),
-
-                  // Date + Time picker — Selesai
                   _DateTimePickerRow(
                     label: 'Selesai',
                     value: dateFormat.format(selesai),
@@ -169,37 +222,89 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child:
-                  const Text('Batal', style: TextStyle(color: Colors.grey)),
+              onPressed:
+                  uploading ? null : () => Navigator.pop(ctx),
+              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final event = EventModel(
-                  idEvent: idCtrl.text.trim(),
-                  namaEvent: namaCtrl.text.trim(),
-                  tanggalMulai: mulai,
-                  tanggalSelesai: selesai,
-                  kuota: int.tryParse(kuotaCtrl.text.trim()) ?? 0,
-                  lokasi: lokasiCtrl.text.trim(),
-                  foto: fotoCtrl.text.trim(),
-                  deskripsi: deskripsiCtrl.text.trim(),
-                );
-                if (existing == null) {
-                  await DatabaseHelper.instance.insertEvent(event);
-                } else {
-                  await DatabaseHelper.instance.updateEvent(event);
-                }
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                _loadData();
-              },
-              child: Text(existing == null ? 'Tambah' : 'Simpan'),
+              onPressed: uploading
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => uploading = true);
+
+                      String fotoUrl = existingFotoUrl;
+                      if (pickedImage != null) {
+                        try {
+                          fotoUrl = await FirebaseService.instance
+                              .uploadEventPhoto(pickedImage!);
+                        } catch (e) {
+                          setDialogState(() => uploading = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal upload foto: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                      }
+
+                      final event = EventModel(
+                        idEvent: existing?.idEvent ?? '',
+                        namaEvent: namaCtrl.text.trim(),
+                        tanggalMulai: mulai,
+                        tanggalSelesai: selesai,
+                        kuota: int.tryParse(kuotaCtrl.text.trim()) ?? 0,
+                        lokasi: lokasiCtrl.text.trim(),
+                        foto: fotoUrl,
+                        deskripsi: deskripsiCtrl.text.trim(),
+                      );
+                      try {
+                        if (existing == null) {
+                          await FirebaseService.instance.addEvent(event);
+                        } else {
+                          await FirebaseService.instance.updateEvent(event);
+                        }
+                        if (!ctx.mounted) return;
+                        Navigator.pop(ctx);
+                      } catch (e) {
+                        setDialogState(() => uploading = false);
+                        if (!ctx.mounted) return;
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            content: Text('Gagal menyimpan: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              child: uploading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : Text(existing == null ? 'Tambah' : 'Simpan'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _photoPlaceholder() {
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.add_photo_alternate_outlined,
+            color: Colors.grey, size: 36),
+        SizedBox(height: 6),
+        Text('Pilih Foto dari Galeri',
+            style: TextStyle(color: Colors.grey, fontSize: 12)),
+      ],
     );
   }
 
@@ -213,18 +318,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         title: const Text('Hapus Event?',
             style: TextStyle(color: Colors.white)),
         content: Text(
-          'Apakah Anda yakin ingin menghapus "${event.namaEvent}"? Semua data pendaftaran juga akan dihapus.',
+          'Apakah Anda yakin ingin menghapus "${event.namaEvent}"? '
+          'Semua data pendaftaran juga akan dihapus.',
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child:
-                const Text('Batal', style: TextStyle(color: Colors.grey)),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade900),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.red.shade900),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Hapus'),
           ),
@@ -232,17 +337,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
     );
     if (confirmed == true) {
-      await DatabaseHelper.instance.deleteEvent(event.idEvent);
-      _loadData();
+      try {
+        await FirebaseService.instance.deleteEvent(event.idEvent);
+        // StreamBuilder otomatis menghapus card dari daftar
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal hapus: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
+
+  // ─── BUILD ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final admin = context.watch<AuthProvider>().currentAdmin;
-    final totalPeserta =
-        _pesertaCounts.values.fold(0, (sum, c) => sum + c);
-    final ongoingCount = _events.where((e) => e.isOngoing).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -260,16 +371,38 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Tambah Event'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.red))
-          : RefreshIndicator(
-              color: Colors.red,
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
+
+      // ── StreamBuilder luar: semua event ──────────────────────────────────
+      body: StreamBuilder<List<EventModel>>(
+        stream: FirebaseService.instance.getEventsStream(),
+        builder: (context, eventsSnap) {
+          // Loading pertama kali (belum ada data dari cache/server)
+          if (eventsSnap.connectionState == ConnectionState.waiting &&
+              !eventsSnap.hasData) {
+            return const Center(
+                child: CircularProgressIndicator(color: Colors.red));
+          }
+          if (eventsSnap.hasError) {
+            return Center(
+              child: Text('Error: ${eventsSnap.error}',
+                  style: const TextStyle(color: Colors.red)),
+            );
+          }
+
+          final events = eventsSnap.data ?? [];
+          final ongoingCount = events.where((e) => e.isReallyOngoing).length;
+
+          // ── StreamBuilder dalam: jumlah akun mahasiswa terdaftar
+          return StreamBuilder<int>(
+            stream: FirebaseService.instance.getTotalUsersStream(),
+            builder: (context, pesertaSnap) {
+              final totalPeserta = pesertaSnap.data ?? 0;
+
+              return SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
                   children: [
-                    // Admin info bar
+                    // ── Admin info bar ────────────────────────────────────
                     Container(
                       padding: const EdgeInsets.all(16),
                       color: const Color(0xFF0D0D0D),
@@ -300,26 +433,57 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                       fontWeight: FontWeight.bold)),
                             ],
                           ),
+                          const Spacer(),
+                          // Indikator live update
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.green.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                const Text('LIVE',
+                                    style: TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1)),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
 
-                    // Stats row
+                    // ── Stats row — update otomatis saat data Firestore berubah ──
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
                           _StatCard(
                             label: 'Total Event',
-                            value: '${_events.length}',
+                            value: '${events.length}',
                             icon: Icons.event,
                             color: Colors.blue,
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const DaftarEventAdminScreen(
-                                  title: 'Semua Event',
-                                ),
+                                    title: 'Semua Event'),
                               ),
                             ),
                           ),
@@ -333,9 +497,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const DaftarEventAdminScreen(
-                                  title: 'Event Berlangsung',
-                                  onlyOngoing: true,
-                                ),
+                                    title: 'Event Berlangsung',
+                                    onlyOngoing: true),
                               ),
                             ),
                           ),
@@ -348,8 +511,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const DaftarUserScreen(),
-                              ),
+                                  builder: (_) => const DaftarUserScreen()),
                             ),
                           ),
                         ],
@@ -369,7 +531,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     ),
                     const SizedBox(height: 8),
 
-                    if (_events.isEmpty)
+                    if (events.isEmpty)
                       const Padding(
                         padding: EdgeInsets.all(40),
                         child: Center(
@@ -383,13 +545,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         physics: const NeverScrollableScrollPhysics(),
                         padding:
                             const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _events.length,
+                        itemCount: events.length,
                         itemBuilder: (_, i) {
-                          final event = _events[i];
-                          final count = _pesertaCounts[event.idEvent] ?? 0;
+                          final event = events[i];
+                          // Setiap card punya StreamBuilder sendiri untuk peserta_count
                           return _AdminEventCard(
                             event: event,
-                            pesertaCount: count,
                             onEdit: () => _showEventDialog(event),
                             onDelete: () => _deleteEvent(event),
                             onTap: () => Navigator.push(
@@ -407,8 +568,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     const SizedBox(height: 80),
                   ],
                 ),
-              ),
-            ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -416,7 +580,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     TextEditingController ctrl,
     String label, {
     TextInputType keyboard = TextInputType.text,
-    bool enabled = true,
     bool required = true,
     int maxLines = 1,
   }) =>
@@ -424,14 +587,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         padding: const EdgeInsets.only(bottom: 10),
         child: TextFormField(
           controller: ctrl,
-          enabled: enabled,
           keyboardType: keyboard,
           maxLines: maxLines,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(labelText: label),
           validator: required
-              ? (v) =>
-                  (v == null || v.isEmpty) ? '$label wajib diisi' : null
+              ? (v) => (v == null || v.isEmpty) ? '$label wajib diisi' : null
               : null,
         ),
       );
@@ -479,8 +640,7 @@ class _StatCard extends StatelessWidget {
                         fontSize: 20,
                         fontWeight: FontWeight.bold)),
                 Text(label,
-                    style: const TextStyle(
-                        color: Colors.grey, fontSize: 11),
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
                     textAlign: TextAlign.center),
                 if (onTap != null) ...[
                   const SizedBox(height: 4),
@@ -495,17 +655,16 @@ class _StatCard extends StatelessWidget {
 }
 
 // ─── _AdminEventCard ──────────────────────────────────────────────────────────
+// Menggunakan StreamBuilder sendiri untuk jumlah peserta real-time per event.
 
 class _AdminEventCard extends StatelessWidget {
   final EventModel event;
-  final int pesertaCount;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback? onTap;
 
   const _AdminEventCard({
     required this.event,
-    required this.pesertaCount,
     required this.onEdit,
     required this.onDelete,
     this.onTap,
@@ -514,112 +673,129 @@ class _AdminEventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM yyyy');
-    final isOngoing = event.isOngoing;
-    final isFull = pesertaCount >= event.kuota;
+    final isOngoing = event.isReallyOngoing;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF2A2A2A)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return StreamBuilder<int>(
+      stream: FirebaseService.instance.getPesertaCountStream(event.idEvent),
+      builder: (context, snap) {
+        final pesertaCount = snap.data ?? 0;
+        final isFull = pesertaCount >= event.kuota;
+
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF2A2A2A)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(event.namaEvent,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(event.namaEvent,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isOngoing
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        isOngoing ? 'Aktif' : 'Selesai',
+                        style: TextStyle(
+                            color: isOngoing ? Colors.green : Colors.grey,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isOngoing
-                        ? Colors.green.withValues(alpha: 0.1)
-                        : Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isOngoing ? 'Aktif' : 'Selesai',
-                    style: TextStyle(
-                        color: isOngoing ? Colors.green : Colors.grey,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600),
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined,
+                        size: 13, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${dateFormat.format(event.tanggalMulai)} – '
+                      '${dateFormat.format(event.tanggalSelesai)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 13, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(event.lokasi,
+                          style: const TextStyle(
+                              color: Colors.grey, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.people_outline,
+                        size: 13, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    // Angka ini berubah real-time via StreamBuilder
+                    Text(
+                      '$pesertaCount / ${event.kuota}',
+                      style: TextStyle(
+                          color: isFull ? Colors.red : Colors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
+                    ),
+                    if (isFull) ...[
+                      const SizedBox(width: 4),
+                      const Text('PENUH',
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined,
+                          color: Colors.blue, size: 20),
+                      onPressed: onEdit,
+                      tooltip: 'Edit',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.red, size: 20),
+                      onPressed: onDelete,
+                      tooltip: 'Hapus',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.calendar_today_outlined,
-                    size: 13, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  '${dateFormat.format(event.tanggalMulai)} – ${dateFormat.format(event.tanggalSelesai)}',
-                  style:
-                      const TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.location_on_outlined,
-                    size: 13, color: Colors.grey),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(event.lokasi,
-                      style:
-                          const TextStyle(color: Colors.grey, fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.people_outline,
-                    size: 13, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  '$pesertaCount / ${event.kuota}',
-                  style: TextStyle(
-                      color: isFull ? Colors.red : Colors.green,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined,
-                      color: Colors.blue, size: 20),
-                  onPressed: onEdit,
-                  tooltip: 'Edit',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      color: Colors.red, size: 20),
-                  onPressed: onDelete,
-                  tooltip: 'Hapus',
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

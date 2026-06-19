@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/firestore_setup_banner.dart';
 import '../admin/admin_home_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -169,6 +170,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 16),
+                const FirestoreSetupBanner(),
               ],
             ),
           ),

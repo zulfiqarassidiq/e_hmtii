@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel {
   final String npm;
   final String nama;
@@ -13,20 +15,25 @@ class UserModel {
     required this.password,
   });
 
-  factory UserModel.fromMap(Map<String, dynamic> map) => UserModel(
-        npm: map['npm'] as String,
-        nama: map['nama'] as String,
-        jurusan: map['jurusan'] as String,
-        tahunMasuk: map['tahun_masuk'] as int,
-        password: map['password'] as String,
-      );
+  // ── Firestore ──────────────────────────────────────────────────────────────
 
-  Map<String, dynamic> toMap() => {
-        'npm': npm,
+  factory UserModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return UserModel(
+      npm: doc.id,
+      nama: d['nama'] as String,
+      jurusan: d['jurusan'] as String,
+      tahunMasuk: d['tahun_masuk'] as int,
+      password: d['password'] as String,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
         'nama': nama,
         'jurusan': jurusan,
         'tahun_masuk': tahunMasuk,
         'password': password,
+        // npm tidak disimpan di body — npm IS the document ID
       };
 
   UserModel copyWith({

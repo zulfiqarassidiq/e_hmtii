@@ -1,23 +1,29 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class PendaftaranModel {
-  final int? idPendaftaran;
+  final String? idPendaftaran; // Firestore document ID
   final String npm;
   final String idEvent;
+  final DateTime? tanggalDaftar;
 
   PendaftaranModel({
     this.idPendaftaran,
     required this.npm,
     required this.idEvent,
+    this.tanggalDaftar,
   });
 
-  factory PendaftaranModel.fromMap(Map<String, dynamic> map) => PendaftaranModel(
-        idPendaftaran: map['id_pendaftaran'] as int?,
-        npm: map['npm'] as String,
-        idEvent: map['id_event'] as String,
-      );
+  // ── Firestore ──────────────────────────────────────────────────────────────
 
-  Map<String, dynamic> toMap() => {
-        if (idPendaftaran != null) 'id_pendaftaran': idPendaftaran,
-        'npm': npm,
-        'id_event': idEvent,
-      };
+  factory PendaftaranModel.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final d = doc.data();
+    return PendaftaranModel(
+      idPendaftaran: doc.id,
+      npm: d['npm'] as String,
+      idEvent: d['id_event'] as String,
+      tanggalDaftar: (d['tanggal_daftar'] as Timestamp?)?.toDate(),
+    );
+  }
 }

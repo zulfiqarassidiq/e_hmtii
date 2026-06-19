@@ -14,7 +14,11 @@
       "Bash(flutter pub *)",
       "Bash(find /c/flutter /d/Flutter -name \"flutter\" -type f 2>/dev/null | head -5)",
       "Read(//c//**)",
-      "Bash(/d/Flutter/bin/flutter pub *)"
+      "Bash(/d/Flutter/bin/flutter pub *)",
+      "Bash(find . -type d -not -path '*/\\\\.*')",
+      "Bash(New-Item -ItemType Directory -Force \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\firebase\")",
+      "Bash(Out-Null)",
+      "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\firebase\")"
     ]
   }
 }

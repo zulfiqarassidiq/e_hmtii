@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class PesertaEventModel {
   final String npm;
   final String nama;
@@ -13,12 +15,19 @@ class PesertaEventModel {
     this.tanggalDaftar,
   });
 
-  factory PesertaEventModel.fromMap(Map<String, dynamic> map) =>
-      PesertaEventModel(
-        npm: map['npm'] as String,
-        nama: map['nama'] as String,
-        jurusan: map['jurusan'] as String,
-        tahunMasuk: map['tahun_masuk'] as int,
-        tanggalDaftar: map['tanggal_daftar'] as String?,
-      );
+  // ── Firestore (membaca dari koleksi pendaftaran_event yang telah di-denormalisasi) ──
+
+  factory PesertaEventModel.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final d = doc.data();
+    final ts = d['tanggal_daftar'] as Timestamp?;
+    return PesertaEventModel(
+      npm: d['npm'] as String,
+      nama: (d['nama'] as String?) ?? 'Unknown',
+      jurusan: (d['jurusan'] as String?) ?? '-',
+      tahunMasuk: (d['tahun_masuk'] as int?) ?? 0,
+      tanggalDaftar: ts?.toDate().toIso8601String(),
+    );
+  }
 }

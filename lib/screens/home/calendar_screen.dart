@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../database/database_helper.dart';
+import '../../firebase/firebase_service.dart';
 import '../../models/event_model.dart';
 import 'event_detail_screen.dart';
 
@@ -18,88 +18,59 @@ class _CalendarScreenState extends State<CalendarScreen> {
   /// Tanggal yang sedang dipilih user (null = belum ada pilihan).
   int? _selectedDay;
 
-  List<EventModel> _events = [];
-  bool _isLoading = true;
-
   static const _weekLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-
-  // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _focusedMonth = DateTime(now.year, now.month);
-    _loadEvents();
-  }
-
-  Future<void> _loadEvents() async {
-    setState(() => _isLoading = true);
-    final events = await DatabaseHelper.instance.getAllEvents();
-    if (mounted) {
-      setState(() {
-        _events = events;
-        _isLoading = false;
-      });
-    }
   }
 
   // ─── Kalkulasi kalender ───────────────────────────────────────────────────────
 
-  /// Jumlah hari pada bulan yang sedang difokuskan.
-  /// Trik: hari ke-0 bulan berikutnya = hari terakhir bulan ini.
   int get _daysInMonth =>
       DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0).day;
 
-  /// Weekday hari pertama bulan (1=Senin … 7=Minggu).
-  /// Dikurangi 1 untuk mendapat jumlah sel kosong di awal grid.
   int get _leadingBlanks =>
       DateTime(_focusedMonth.year, _focusedMonth.month, 1).weekday - 1;
 
-  /// Total sel grid (blanks awal + hari + blanks akhir agar kelipatan 7).
   int get _totalCells {
     final filled = _leadingBlanks + _daysInMonth;
     final remainder = filled % 7;
     return remainder == 0 ? filled : filled + (7 - remainder);
   }
 
-  // ─── Logika event ─────────────────────────────────────────────────────────────
+  // ─── Logika event (menerima list dari StreamBuilder) ──────────────────────────
 
-  /// Mengubah [DateTime] ke representasi tanggal-saja (tanpa jam) untuk perbandingan.
   DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
-  /// True jika ada event yang mencakup [day] pada bulan & tahun yang difokuskan.
-  ///
-  /// Logika: sebuah event mencakup hari tertentu apabila
-  ///   tanggal_mulai ≤ hari ≤ tanggal_selesai.
-  bool _hasEvent(int day) {
+  bool _hasEvent(int day, List<EventModel> events) {
     final target = _dateOnly(
       DateTime(_focusedMonth.year, _focusedMonth.month, day),
     );
-    return _events.any((e) {
+    return events.any((e) {
       final start = _dateOnly(e.tanggalMulai);
       final end = _dateOnly(e.tanggalSelesai);
       return !target.isBefore(start) && !target.isAfter(end);
     });
   }
 
-  /// Daftar event yang mencakup tanggal [_selectedDay].
-  List<EventModel> get _filteredEvents {
+  List<EventModel> _filteredEvents(List<EventModel> events) {
     if (_selectedDay == null) {
-      // Jika belum ada pilihan, tampilkan semua event bulan ini.
-      return _events.where((e) {
+      return events.where((e) {
         final start = _dateOnly(e.tanggalMulai);
         final end = _dateOnly(e.tanggalSelesai);
         final monthStart = _focusedMonth;
-        final monthEnd = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+        final monthEnd =
+            DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
         return !end.isBefore(monthStart) && !start.isAfter(monthEnd);
       }).toList();
     }
-
     final target = _dateOnly(
       DateTime(_focusedMonth.year, _focusedMonth.month, _selectedDay!),
     );
-    return _events.where((e) {
+    return events.where((e) {
       final start = _dateOnly(e.tanggalMulai);
       final end = _dateOnly(e.tanggalSelesai);
       return !target.isBefore(start) && !target.isAfter(end);
@@ -152,45 +123,62 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.red))
-          : RefreshIndicator(
-              color: Colors.red,
-              onRefresh: _loadEvents,
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(child: _buildCalendar()),
-                  SliverToBoxAdapter(child: _buildEventListHeader()),
-                  _filteredEvents.isEmpty
-                      ? SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: _buildEmptyState(),
-                        )
-                      : SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (_, i) => _EventTile(
-                              event: _filteredEvents[i],
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => EventDetailScreen(
-                                    event: _filteredEvents[i],
-                                  ),
-                                ),
-                              ).then((_) => _loadEvents()),
+
+      // ── StreamBuilder: mendengarkan koleksi 'events' secara real-time ─────────
+      body: StreamBuilder<List<EventModel>>(
+        stream: FirebaseService.instance.getEventsStream(),
+        builder: (context, snap) {
+          // Loading awal — belum ada data dari Firestore
+          if (snap.connectionState == ConnectionState.waiting &&
+              !snap.hasData) {
+            return const Center(
+                child: CircularProgressIndicator(color: Colors.red));
+          }
+          if (snap.hasError) {
+            return Center(
+              child: Text('Error: ${snap.error}',
+                  style: const TextStyle(color: Colors.red)),
+            );
+          }
+
+          // Data sudah tersedia — render kalender
+          final events = snap.data ?? [];
+          final filtered = _filteredEvents(events);
+
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildCalendar(events)),
+              SliverToBoxAdapter(child: _buildEventListHeader(filtered)),
+              filtered.isEmpty
+                  ? SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildEmptyState(),
+                    )
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _EventTile(
+                          event: filtered[i],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  EventDetailScreen(event: filtered[i]),
                             ),
-                            childCount: _filteredEvents.length,
                           ),
                         ),
-                ],
-              ),
-            ),
+                        childCount: filtered.length,
+                      ),
+                    ),
+            ],
+          );
+        },
+      ),
     );
   }
 
   // ─── Bagian UI: header bulan + grid ──────────────────────────────────────────
 
-  Widget _buildCalendar() {
+  Widget _buildCalendar(List<EventModel> events) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -205,7 +193,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           const SizedBox(height: 12),
           _buildWeekdayLabels(),
           const SizedBox(height: 4),
-          _buildDayGrid(),
+          _buildDayGrid(events),
           const SizedBox(height: 8),
           _buildLegend(),
         ],
@@ -237,27 +225,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildWeekdayLabels() {
     return Row(
       children: _weekLabels
-          .map(
-            (label) => Expanded(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: (label == 'Min') ? Colors.red.shade300 : Colors.grey,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+          .map((label) => Expanded(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: (label == 'Min') ? Colors.red.shade300 : Colors.grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ),
-          )
+              ))
           .toList(),
     );
   }
 
-  Widget _buildDayGrid() {
+  Widget _buildDayGrid(List<EventModel> events) {
     final now = DateTime.now();
-    final todayDay =
-        _isCurrentMonth ? now.day : -1; // -1 if not current month
+    final todayDay = _isCurrentMonth ? now.day : -1;
 
     return GridView.builder(
       shrinkWrap: true,
@@ -271,16 +256,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
       itemCount: _totalCells,
       itemBuilder: (_, i) {
         final day = i - _leadingBlanks + 1;
-
-        // Sel kosong (sebelum hari 1 atau setelah hari terakhir)
-        if (day < 1 || day > _daysInMonth) {
-          return const SizedBox.shrink();
-        }
+        if (day < 1 || day > _daysInMonth) return const SizedBox.shrink();
 
         final isSelected = _selectedDay == day;
-        final hasEvent = _hasEvent(day);
+        // hasEvent kini dihitung dari data real-time stream
+        final hasEvent = _hasEvent(day, events);
         final isToday = todayDay == day;
-        final isSunday = (i % 7) == 6; // kolom ke-7 = Minggu
+        final isSunday = (i % 7) == 6;
 
         return GestureDetector(
           onTap: () => setState(
@@ -306,7 +288,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         children: [
           _LegendDot(color: Colors.red, label: 'Ada event'),
           const SizedBox(width: 16),
-          _LegendDot(color: Colors.red.shade900, label: 'Dipilih & ada event'),
+          _LegendDot(
+              color: Colors.red.shade900, label: 'Dipilih & ada event'),
           const SizedBox(width: 16),
           _LegendDot(
               color: Colors.red.withValues(alpha: 0.25), label: 'Hari ini'),
@@ -317,13 +300,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // ─── Bagian UI: header daftar event ──────────────────────────────────────────
 
-  Widget _buildEventListHeader() {
+  Widget _buildEventListHeader(List<EventModel> filtered) {
     final String label;
     if (_selectedDay == null) {
-      label = 'Event Bulan ${DateFormat('MMMM', 'id_ID').format(_focusedMonth)}';
+      label =
+          'Event Bulan ${DateFormat('MMMM', 'id_ID').format(_focusedMonth)}';
     } else {
       label =
-          'Event ${_selectedDay} ${DateFormat('MMMM yyyy', 'id_ID').format(_focusedMonth)}';
+          'Event $_selectedDay ${DateFormat('MMMM yyyy', 'id_ID').format(_focusedMonth)}';
     }
 
     return Padding(
@@ -332,14 +316,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
         children: [
           const Icon(Icons.event_note, color: Colors.red, size: 18),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold)),
           const Spacer(),
           Container(
             padding:
@@ -349,7 +330,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              '${_filteredEvents.length}',
+              '${filtered.length}',
               style: const TextStyle(
                   color: Colors.red,
                   fontSize: 12,
@@ -375,20 +356,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.event_busy,
-              color: Colors.grey.withValues(alpha: 0.35),
-              size: 72,
-            ),
+            Icon(Icons.event_busy,
+                color: Colors.grey.withValues(alpha: 0.35), size: 72),
             const SizedBox(height: 16),
             Text(
               _selectedDay == null
                   ? 'Tidak ada event di bulan ini'
                   : 'Tidak ada event pada tanggal ini',
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
               textAlign: TextAlign.center,
             ),
             if (_selectedDay != null) ...[
@@ -396,9 +371,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Text(
                 'Coba pilih tanggal lain atau ketuk × untuk reset',
                 style: TextStyle(
-                  color: Colors.grey.withValues(alpha: 0.6),
-                  fontSize: 12,
-                ),
+                    color: Colors.grey.withValues(alpha: 0.6), fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -428,25 +401,18 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ── Tentukan warna background lingkaran ─────────────────────────────────
     Color? circleBg;
     Color textColor;
     Border? circleBorder;
 
     if (isSelected && hasEvent) {
-      // Dipilih + ada event → lingkaran merah pekat
       circleBg = Colors.red.shade700;
       textColor = Colors.white;
     } else if (isSelected && !hasEvent) {
-      // Dipilih, tidak ada event → border merah/abu, bg transparan
       circleBg = Colors.transparent;
-      circleBorder = Border.all(
-        color: Colors.grey.shade600,
-        width: 1.5,
-      );
+      circleBorder = Border.all(color: Colors.grey.shade600, width: 1.5);
       textColor = Colors.white;
     } else if (isToday) {
-      // Hari ini (tidak dipilih) → lingkaran merah transparan
       circleBg = Colors.red.withValues(alpha: 0.20);
       textColor = Colors.red.shade300;
     } else {
@@ -477,7 +443,6 @@ class _DayCell extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        // Titik merah penanda event (hanya tampil jika tidak dipilih)
         AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
           opacity: hasEvent ? 1.0 : 0.0,
@@ -552,7 +517,7 @@ class _EventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM yyyy', 'id_ID');
-    final isOngoing = event.isOngoing;
+    final isOngoing = event.isReallyOngoing;
 
     return GestureDetector(
       onTap: onTap,
@@ -570,7 +535,6 @@ class _EventTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Status icon
             Container(
               width: 44,
               height: 44,
@@ -587,8 +551,6 @@ class _EventTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -596,10 +558,9 @@ class _EventTile extends StatelessWidget {
                   Text(
                     event.namaEvent,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -610,9 +571,10 @@ class _EventTile extends StatelessWidget {
                           size: 11, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text(
-                        '${dateFormat.format(event.tanggalMulai)} – ${dateFormat.format(event.tanggalSelesai)}',
-                        style: const TextStyle(
-                            color: Colors.grey, fontSize: 11),
+                        '${dateFormat.format(event.tanggalMulai)} – '
+                        '${dateFormat.format(event.tanggalSelesai)}',
+                        style:
+                            const TextStyle(color: Colors.grey, fontSize: 11),
                       ),
                     ],
                   ),
@@ -625,8 +587,8 @@ class _EventTile extends StatelessWidget {
                       Expanded(
                         child: Text(
                           event.lokasi,
-                          style: const TextStyle(
-                              color: Colors.grey, fontSize: 11),
+                          style:
+                              const TextStyle(color: Colors.grey, fontSize: 11),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -635,7 +597,6 @@ class _EventTile extends StatelessWidget {
                 ],
               ),
             ),
-
             Icon(Icons.chevron_right,
                 color: Colors.grey.withValues(alpha: 0.4)),
           ],
