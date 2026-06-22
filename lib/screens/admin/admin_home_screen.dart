@@ -79,12 +79,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         existing?.tanggalSelesai ?? DateTime.now().add(const Duration(days: 2));
 
     XFile? pickedImage;
-    String existingFotoUrl = existing?.foto ?? '';
-    bool uploading = false;
+    String currentFotoUrl = existing?.foto ?? '';
+    bool saving = false;
 
     final formKey = GlobalKey<FormState>();
     final dateFormat = DateFormat('dd MMM yyyy  HH:mm');
-    final picker = ImagePicker();
 
     showDialog(
       context: context,
@@ -112,12 +111,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       required: false, maxLines: 3),
                   const SizedBox(height: 12),
 
-                  // ── Image Picker ────────────────────────────────────────
+                  // ── Foto Picker ─────────────────────────────────────────
                   GestureDetector(
-                    onTap: uploading
+                    onTap: saving
                         ? null
                         : () async {
-                            final img = await picker.pickImage(
+                            final img = await ImagePicker().pickImage(
                               source: ImageSource.gallery,
                               imageQuality: 75,
                               maxWidth: 1200,
@@ -140,69 +139,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: pickedImage != null
-                          ? Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.file(File(pickedImage!.path),
-                                    fit: BoxFit.cover),
-                                Positioned(
-                                  bottom: 6,
-                                  right: 6,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black54,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text('Ganti',
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11)),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : existingFotoUrl.isNotEmpty
-                              ? Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.network(existingFotoUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, e) =>
-                                            _photoPlaceholder()),
-                                    Positioned(
-                                      bottom: 6,
-                                      right: 6,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: const Text('Ganti',
-                                            style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 11)),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : _photoPlaceholder(),
+                          ? _fotoPreviewFile(pickedImage!)
+                          : currentFotoUrl.isNotEmpty
+                              ? _fotoPreviewNetwork(currentFotoUrl)
+                              : _fotoPlaceholder(),
                     ),
                   ),
-                  const SizedBox(height: 12),
 
+                  const SizedBox(height: 12),
                   _DateTimePickerRow(
                     label: 'Mulai',
                     value: dateFormat.format(mulai),
                     onTap: () async {
                       final result = await _pickDateTime(ctx, mulai);
-                      if (result != null) {
-                        setDialogState(() => mulai = result);
-                      }
+                      if (result != null) setDialogState(() => mulai = result);
                     },
                   ),
                   const SizedBox(height: 8),
@@ -222,31 +172,30 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
           actions: [
             TextButton(
-              onPressed:
-                  uploading ? null : () => Navigator.pop(ctx),
+              onPressed: saving ? null : () => Navigator.pop(ctx),
               child: const Text('Batal', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
-              onPressed: uploading
+              onPressed: saving
                   ? null
                   : () async {
                       if (!formKey.currentState!.validate()) return;
-                      setDialogState(() => uploading = true);
+                      setDialogState(() => saving = true);
 
-                      String fotoUrl = existingFotoUrl;
+                      // Upload gambar jika ada yang dipilih dari galeri
+                      String fotoUrl = currentFotoUrl;
                       if (pickedImage != null) {
                         try {
                           fotoUrl = await FirebaseService.instance
-                              .uploadEventPhoto(pickedImage!);
+                              .uploadImage(pickedImage!);
                         } catch (e) {
-                          setDialogState(() => uploading = false);
+                          setDialogState(() => saving = false);
                           if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text('Gagal upload foto: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
+                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                              content: Text('$e'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 7),
+                            ));
                           }
                           return;
                         }
@@ -271,17 +220,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         if (!ctx.mounted) return;
                         Navigator.pop(ctx);
                       } catch (e) {
-                        setDialogState(() => uploading = false);
+                        setDialogState(() => saving = false);
                         if (!ctx.mounted) return;
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          SnackBar(
-                            content: Text('Gagal menyimpan: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                          content: Text('Gagal menyimpan: $e'),
+                          backgroundColor: Colors.red,
+                        ));
                       }
                     },
-              child: uploading
+              child: saving
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -295,18 +242,47 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _photoPlaceholder() {
-    return const Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.add_photo_alternate_outlined,
-            color: Colors.grey, size: 36),
-        SizedBox(height: 6),
-        Text('Pilih Foto dari Galeri',
-            style: TextStyle(color: Colors.grey, fontSize: 12)),
-      ],
-    );
-  }
+  Widget _fotoPreviewFile(XFile file) => Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(File(file.path), fit: BoxFit.cover),
+          _gantiLabel(),
+        ],
+      );
+
+  Widget _fotoPreviewNetwork(String url) => Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(url,
+              fit: BoxFit.cover,
+              errorBuilder: (context2, e, stack) => _fotoPlaceholder()),
+          _gantiLabel(),
+        ],
+      );
+
+  Widget _gantiLabel() => Positioned(
+        bottom: 6,
+        right: 6,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Text('Ganti',
+              style: TextStyle(color: Colors.white, fontSize: 11)),
+        ),
+      );
+
+  Widget _fotoPlaceholder() => const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add_photo_alternate_outlined, color: Colors.grey, size: 36),
+          SizedBox(height: 6),
+          Text('Pilih Foto dari Galeri',
+              style: TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      );
 
   Future<void> _deleteEvent(EventModel event) async {
     final confirmed = await showDialog<bool>(

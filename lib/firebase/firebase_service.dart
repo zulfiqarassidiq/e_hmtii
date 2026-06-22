@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
+import '../config/app_config.dart';
 import '../models/admin_model.dart';
 import '../models/event_model.dart';
 import '../models/pendaftaran_model.dart';
@@ -78,16 +79,28 @@ class FirebaseService {
     }
   }
 
-  // ─── STORAGE ──────────────────────────────────────────────────────────────
+  // ─── IMAGE UPLOAD (ImgBB — gratis, tidak perlu Firebase Storage) ──────────
 
-  /// Upload foto event ke Firebase Storage dan kembalikan URL download-nya.
-  Future<String> uploadEventPhoto(XFile file) async {
-    final fileName =
-        '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
-    final ref =
-        FirebaseStorage.instance.ref().child('event_photos/$fileName');
-    final snapshot = await ref.putFile(File(file.path));
-    return snapshot.ref.getDownloadURL();
+  /// Upload gambar ke ImgBB dan kembalikan URL publiknya.
+  /// Butuh API key gratis dari https://imgbb.com → Account → API.
+  Future<String> uploadImage(XFile file) async {
+    if (AppConfig.imgbbApiKey == 'GANTI_API_KEY_IMGBB_DI_SINI') {
+      throw Exception(
+          'API key ImgBB belum diisi.\n'
+          'Daftar gratis di imgbb.com → Account → API → Get API key.\n'
+          'Lalu isi di lib/config/app_config.dart');
+    }
+    final bytes = await file.readAsBytes();
+    final base64Image = base64Encode(bytes);
+    final response = await http.post(
+      Uri.parse('https://api.imgbb.com/1/upload?key=${AppConfig.imgbbApiKey}'),
+      body: {'image': base64Image},
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['data']['url'] as String;
+    }
+    throw Exception('Upload gagal (${response.statusCode}): ${response.body}');
   }
 
   // ─── USER ─────────────────────────────────────────────────────────────────
@@ -239,10 +252,13 @@ class FirebaseService {
   Stream<List<PendaftaranModel>> getPendaftaranByNpmStream(String npm) {
     return _pendaftaran
         .where('npm', isEqualTo: npm)
-        .orderBy('tanggal_daftar', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map(PendaftaranModel.fromFirestore).toList());
+        .map((snap) {
+      final list = snap.docs.map(PendaftaranModel.fromFirestore).toList();
+      list.sort((a, b) =>
+          (b.tanggalDaftar ?? DateTime(0)).compareTo(a.tanggalDaftar ?? DateTime(0)));
+      return list;
+    });
   }
 
   /// Daftar peserta suatu event dengan detail user (untuk DaftarPesertaEventScreen).
@@ -250,7 +266,6 @@ class FirebaseService {
   Stream<List<PesertaEventModel>> getPesertaByEventIdStream(String eventId) {
     return _pendaftaran
         .where('id_event', isEqualTo: eventId)
-        .orderBy('nama')
         .snapshots()
         .map((snap) =>
             snap.docs.map(PesertaEventModel.fromFirestore).toList());

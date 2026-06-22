@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Event Kampus'),
+        title: const Text('E-HMTI'),
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month_outlined),
@@ -96,34 +96,6 @@ class _HomeScreenState extends State<HomeScreen>
             onPressed: _logout,
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.red,
-          labelColor: Colors.red,
-          unselectedLabelColor: Colors.grey,
-          tabs: [
-            Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.play_circle_outline, size: 16),
-                  const SizedBox(width: 6),
-                  Text('Berlangsung (${_ongoingEvents.length})'),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.check_circle_outline, size: 16),
-                  const SizedBox(width: 6),
-                  Text('Selesai (${_finishedEvents.length})'),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
       body: Column(
         children: [
@@ -165,12 +137,41 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
 
+          // TabBar di bawah greeting
+          TabBar(
+            controller: _tabController,
+            indicatorColor: Colors.red,
+            labelColor: Colors.red,
+            unselectedLabelColor: Colors.grey,
+            tabs: [
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.play_circle_outline, size: 16),
+                    const SizedBox(width: 6),
+                    Text('Berlangsung (${_ongoingEvents.length})'),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 16),
+                    const SizedBox(width: 6),
+                    Text('Selesai (${_finishedEvents.length})'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
           // Tab content
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child:
-                        CircularProgressIndicator(color: Colors.red))
+                    child: CircularProgressIndicator(color: Colors.red))
                 : TabBarView(
                     controller: _tabController,
                     children: [

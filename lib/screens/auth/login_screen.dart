@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text('Event Kampus',
+                      const Text('E-HMTI',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 26,

@@ -28,20 +28,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
     setState(() => _isLoading = true);
 
-    final pendaftaranList =
-        await DatabaseHelper.instance.getPendaftaranByNpm(user.npm);
-    final events = <EventModel>[];
-    for (final p in pendaftaranList) {
-      final event =
-          await DatabaseHelper.instance.getEventById(p.idEvent);
-      if (event != null) events.add(event);
-    }
-
-    if (mounted) {
-      setState(() {
-        _registeredEvents = events;
-        _isLoading = false;
-      });
+    try {
+      final pendaftaranList =
+          await DatabaseHelper.instance.getPendaftaranByNpm(user.npm);
+      final events = <EventModel>[];
+      for (final p in pendaftaranList) {
+        final event = await DatabaseHelper.instance.getEventById(p.idEvent);
+        if (event != null) events.add(event);
+      }
+      if (mounted) setState(() => _registeredEvents = events);
+    } catch (_) {
+      // Gagal fetch — tampilkan kosong, tidak crash
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
