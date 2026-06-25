@@ -18,7 +18,8 @@
       "Bash(find . -type d -not -path '*/\\\\.*')",
       "Bash(New-Item -ItemType Directory -Force \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\firebase\")",
       "Bash(Out-Null)",
-      "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\firebase\")"
+      "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\KKP\\\\e_hmti\\\\e_hmtii\\\\lib\\\\firebase\")",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(48\\).toString\\('hex'\\)\\)\")"
     ]
   }
 }

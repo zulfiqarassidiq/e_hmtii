@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../database/database_helper.dart';
+import '../../firebase/firebase_service.dart';
 import '../../models/peserta_event_model.dart';
 
 class DaftarPesertaEventScreen extends StatelessWidget {
@@ -27,10 +27,11 @@ class DaftarPesertaEventScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: FutureBuilder<List<PesertaEventModel>>(
-        future: DatabaseHelper.instance.getPesertaByEventId(idEvent),
+      body: StreamBuilder<List<PesertaEventModel>>(
+        stream: FirebaseService.instance.getPesertaByEventIdStream(idEvent),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
             return const Center(
               child: CircularProgressIndicator(color: Colors.red),
             );

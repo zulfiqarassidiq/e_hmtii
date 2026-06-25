@@ -1,0 +1,75 @@
+<%- include('../partials/header') %>
+<% const activePage = 'users'; %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar') %>
+
+  <main class="main-content">
+    <div class="topbar mb-4">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1">
+          <li class="breadcrumb-item"><a href="/users" class="text-decoration-none">Manajemen User</a></li>
+          <li class="breadcrumb-item active">Edit User</li>
+        </ol>
+      </nav>
+      <h5 class="fw-bold mb-0">Edit User: <span class="text-primary"><%= user.nama %></span></h5>
+    </div>
+
+    <!-- Flash -->
+    <% if (error && error.length) { %>
+      <div class="alert alert-danger alert-dismissible alert-auto-dismiss fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm" style="max-width:600px;">
+      <div class="card-body p-4">
+        <form action="/users/<%= user.npm %>?_method=PUT" method="POST" novalidate>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">NPM</label>
+            <input type="text" class="form-control" value="<%= user.npm %>" disabled />
+            <div class="form-text">NPM tidak dapat diubah.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="nama">Nama Lengkap <span class="text-danger">*</span></label>
+            <input type="text" id="nama" name="nama" class="form-control" value="<%= user.nama %>" required />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="jurusan">Jurusan <span class="text-danger">*</span></label>
+            <select id="jurusan" name="jurusan" class="form-select" required>
+              <% ['Teknik Informatika', 'Sistem Informasi', 'Teknik Komputer', 'Manajemen Informatika'].forEach(j => { %>
+                <option value="<%= j %>" <%= user.jurusan === j ? 'selected' : '' %>><%= j %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="tahun_masuk">Tahun Masuk <span class="text-danger">*</span></label>
+            <input type="number" id="tahun_masuk" name="tahun_masuk" class="form-control"
+              value="<%= user.tahun_masuk %>" min="2000" max="<%= new Date().getFullYear() %>" required />
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold" for="password">
+              Password Baru <span class="text-muted fw-normal">(kosongkan jika tidak diubah)</span>
+            </label>
+            <input type="password" id="password" name="password" class="form-control"
+              placeholder="Isi hanya jika ingin mengubah password" />
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-red fw-bold px-4">
+              <i class="bi bi-save me-1"></i> Perbarui
+            </button>
+            <a href="/users" class="btn btn-outline-secondary px-4">Batal</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

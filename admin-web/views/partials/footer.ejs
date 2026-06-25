@@ -1,0 +1,22 @@
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Auto-dismiss alert setelah 4 detik
+    document.querySelectorAll('.alert-auto-dismiss').forEach(el => {
+      setTimeout(() => {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
+        bsAlert.close();
+      }, 4000);
+    });
+
+    // Konfirmasi hapus
+    document.querySelectorAll('.btn-confirm-delete').forEach(btn => {
+      btn.addEventListener('click', e => {
+        if (!confirm(btn.dataset.confirm || 'Yakin ingin menghapus data ini?')) {
+          e.preventDefault();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

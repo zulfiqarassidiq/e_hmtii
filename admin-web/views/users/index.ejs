@@ -1,0 +1,116 @@
+<%- include('../partials/header') %>
+<% const activePage = 'users'; %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar') %>
+
+  <main class="main-content">
+    <!-- Topbar -->
+    <div class="topbar d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+      <div>
+        <h5 class="fw-bold mb-0">Manajemen User</h5>
+        <small class="text-muted">Total: <strong><%= users.length %></strong> mahasiswa</small>
+      </div>
+      <a href="/users/create" class="btn btn-red fw-semibold">
+        <i class="bi bi-plus-lg me-1"></i> Tambah User
+      </a>
+    </div>
+
+    <!-- Flash -->
+    <% if (success && success.length) { %>
+      <div class="alert alert-success alert-dismissible alert-auto-dismiss fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i><%= success[0] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+    <% if (error && error.length) { %>
+      <div class="alert alert-danger alert-dismissible alert-auto-dismiss fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <!-- Search -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body py-2 px-3">
+        <form action="/users" method="GET" class="d-flex gap-2 align-items-center">
+          <div class="input-group">
+            <span class="input-group-text bg-transparent border-end-0">
+              <i class="bi bi-search text-muted"></i>
+            </span>
+            <input
+              type="text"
+              name="search"
+              value="<%= search %>"
+              class="form-control border-start-0"
+              placeholder="Cari nama, NPM, atau jurusan..."
+            />
+          </div>
+          <button type="submit" class="btn btn-primary px-4">Cari</button>
+          <% if (search) { %>
+            <a href="/users" class="btn btn-outline-secondary">Reset</a>
+          <% } %>
+        </form>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <% if (users.length === 0) { %>
+          <div class="text-center py-5">
+            <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
+            <p class="text-muted mt-2">
+              <% if (search) { %> Tidak ada user dengan kata kunci "<%= search %>". <% } else { %> Belum ada user terdaftar. <% } %>
+            </p>
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-4">#</th>
+                  <th>NPM</th>
+                  <th>Nama</th>
+                  <th>Jurusan</th>
+                  <th>Tahun Masuk</th>
+                  <th class="text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% users.forEach((user, i) => { %>
+                  <tr>
+                    <td class="ps-4" style="color:#aaa;font-size:.85rem;"><%= i + 1 %></td>
+                    <td><code style="background:var(--accent-subtle);color:var(--accent);padding:2px 7px;border-radius:5px;font-size:.82em;"><%= user.npm %></code></td>
+                    <td class="fw-semibold" style="color:#fff;"><%= user.nama %></td>
+                    <td style="color:#ddd;"><%= user.jurusan %></td>
+                    <td style="color:#ddd;"><%= user.tahun_masuk %></td>
+                    <td class="text-center">
+                      <a href="/users/<%= user.npm %>/edit" class="btn btn-sm me-1" title="Edit"
+                        style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa;border-radius:8px;">
+                        <i class="bi bi-pencil-fill"></i>
+                      </a>
+                      <form action="/users/<%= user.npm %>?_method=DELETE" method="POST" class="d-inline">
+                        <button
+                          type="submit"
+                          class="btn btn-sm btn-confirm-delete"
+                          style="background:var(--accent-subtle);border:1px solid rgba(229,53,53,.4);color:var(--accent);border-radius:8px;"
+                          data-confirm="Hapus user <%= user.nama %> (NPM: <%= user.npm %>)? Tindakan ini tidak dapat dibatalkan."
+                          title="Hapus"
+                        >
+                          <i class="bi bi-trash-fill"></i>
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

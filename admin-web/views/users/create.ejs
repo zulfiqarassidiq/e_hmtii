@@ -1,0 +1,77 @@
+<%- include('../partials/header') %>
+<% const activePage = 'users'; %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar') %>
+
+  <main class="main-content">
+    <div class="topbar mb-4">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1">
+          <li class="breadcrumb-item"><a href="/users" class="text-decoration-none">Manajemen User</a></li>
+          <li class="breadcrumb-item active">Tambah User</li>
+        </ol>
+      </nav>
+      <h5 class="fw-bold mb-0">Tambah User Baru</h5>
+    </div>
+
+    <!-- Flash -->
+    <% if (error && error.length) { %>
+      <div class="alert alert-danger alert-dismissible alert-auto-dismiss fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm" style="max-width:600px;">
+      <div class="card-body p-4">
+        <form action="/users" method="POST" novalidate>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="npm">NPM <span class="text-danger">*</span></label>
+            <input type="text" id="npm" name="npm" class="form-control" value="<%= formData.npm || '' %>"
+              placeholder="Contoh: 2021001" required />
+            <div class="form-text">NPM digunakan sebagai ID unik, tidak bisa diubah setelah disimpan.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="nama">Nama Lengkap <span class="text-danger">*</span></label>
+            <input type="text" id="nama" name="nama" class="form-control" value="<%= formData.nama || '' %>"
+              placeholder="Nama mahasiswa" required />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="jurusan">Jurusan <span class="text-danger">*</span></label>
+            <select id="jurusan" name="jurusan" class="form-select" required>
+              <option value="" disabled <%= !formData.jurusan ? 'selected' : '' %>>Pilih jurusan</option>
+              <% ['Teknik Informatika', 'Sistem Informasi', 'Teknik Komputer', 'Manajemen Informatika'].forEach(j => { %>
+                <option value="<%= j %>" <%= formData.jurusan === j ? 'selected' : '' %>><%= j %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="tahun_masuk">Tahun Masuk <span class="text-danger">*</span></label>
+            <input type="number" id="tahun_masuk" name="tahun_masuk" class="form-control"
+              value="<%= formData.tahun_masuk || new Date().getFullYear() %>"
+              min="2000" max="<%= new Date().getFullYear() %>" required />
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold" for="password">Password <span class="text-danger">*</span></label>
+            <input type="password" id="password" name="password" class="form-control"
+              placeholder="Minimal 6 karakter" required />
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-red fw-bold px-4">
+              <i class="bi bi-save me-1"></i> Simpan
+            </button>
+            <a href="/users" class="btn btn-outline-secondary px-4">Batal</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

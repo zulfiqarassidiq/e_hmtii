@@ -1,0 +1,48 @@
+<nav class="sidebar d-flex flex-column flex-shrink-0 p-3">
+  <!-- Brand -->
+  <a href="/dashboard" class="sidebar-brand d-flex align-items-center gap-2 mb-4 text-decoration-none">
+    <div style="width:36px;height:36px;background:var(--accent-subtle);border:1.5px solid var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="bi bi-shield-lock-fill" style="color:var(--accent);font-size:1.1rem;"></i>
+    </div>
+    <span class="fw-bold fs-5">e-HMTI</span>
+    <span class="badge ms-1" style="font-size:.55rem;background:var(--accent);color:#fff;border-radius:5px;">ADMIN</span>
+  </a>
+
+  <!-- Nav links -->
+  <ul class="nav nav-pills flex-column gap-1 mb-auto">
+    <li>
+      <a href="/dashboard"
+         class="nav-link sidebar-link <%= locals.activePage === 'dashboard' ? 'active' : '' %>">
+        <i class="bi bi-speedometer2 me-2"></i> Dashboard
+      </a>
+    </li>
+    <li>
+      <a href="/users"
+         class="nav-link sidebar-link <%= locals.activePage === 'users' ? 'active' : '' %>">
+        <i class="bi bi-people-fill me-2"></i> Manajemen User
+      </a>
+    </li>
+    <li>
+      <a href="/events"
+         class="nav-link sidebar-link <%= locals.activePage === 'events' ? 'active' : '' %>">
+        <i class="bi bi-calendar-event-fill me-2"></i> Manajemen Event
+      </a>
+    </li>
+  </ul>
+
+  <hr class="text-secondary" />
+
+  <!-- Admin info + logout -->
+  <div class="d-flex align-items-center gap-2">
+    <div class="sidebar-avatar"><i class="bi bi-person-fill"></i></div>
+    <div class="flex-grow-1 overflow-hidden">
+      <small class="d-block text-white fw-semibold text-truncate"><%= admin?.idAdmin || 'Admin' %></small>
+      <small class="text-secondary" style="font-size:.7rem;">Administrator</small>
+    </div>
+    <form action="/logout" method="POST" class="m-0">
+      <button type="submit" class="btn btn-sm btn-outline-danger" title="Logout">
+        <i class="bi bi-box-arrow-right"></i>
+      </button>
+    </form>
+  </div>
+</nav>

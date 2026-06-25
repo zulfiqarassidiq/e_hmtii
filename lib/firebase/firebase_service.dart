@@ -191,6 +191,14 @@ class FirebaseService {
     });
   }
 
+  /// Stream satu event berdasarkan ID — dipakai di EventDetailScreen.
+  Stream<EventModel?> getEventStream(String eventId) {
+    return _events.doc(eventId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return EventModel.fromFirestore(doc);
+    });
+  }
+
   /// Menambahkan event baru. ID di-generate otomatis oleh Firestore.
   Future<void> addEvent(EventModel event) async {
     final data = event.toFirestore();

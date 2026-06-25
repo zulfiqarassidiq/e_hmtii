@@ -1,0 +1,159 @@
+<%- include('../partials/header') %>
+<% const activePage = 'events'; %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar') %>
+
+  <main class="main-content">
+    <div class="topbar d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item"><a href="/events" class="text-decoration-none">Manajemen Event</a></li>
+            <li class="breadcrumb-item active">Daftar Peserta</li>
+          </ol>
+        </nav>
+        <h5 class="fw-bold mb-0" style="color:#fff;"><%= event.nama_event %></h5>
+        <small style="color:#aaa;">
+          <i class="bi bi-geo-alt me-1"></i><%= event.lokasi %> &bull;
+          Peserta: <strong style="color:#fff;"><%= peserta.length %> / <%= event.kuota %></strong>
+        </small>
+      </div>
+      <a href="/events" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Kembali
+      </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <% if (peserta.length === 0) { %>
+          <div class="text-center py-5">
+            <i class="bi bi-people" style="font-size:3rem;color:#555;"></i>
+            <p style="color:#888;" class="mt-2">Belum ada peserta yang mendaftar.</p>
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tabelPeserta">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-4" style="color:#aaa;">#</th>
+                  <th style="color:#aaa;">NPM</th>
+                  <th style="color:#aaa;">Nama</th>
+                  <th style="color:#aaa;">Jurusan</th>
+                  <th style="color:#aaa;">Tahun Masuk</th>
+                  <th style="color:#aaa;">Tanggal Daftar</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% peserta.forEach((p, i) => { %>
+                  <tr>
+                    <td class="ps-4" style="color:#aaa;font-size:.85rem;"><%= i + 1 %></td>
+                    <td>
+                      <code style="background:var(--accent-subtle);color:var(--accent);padding:2px 7px;border-radius:5px;font-size:.82em;">
+                        <%= p.npm %>
+                      </code>
+                    </td>
+                    <td class="fw-semibold" style="color:#fff;"><%= p.nama %></td>
+                    <td style="color:#ddd;"><%= p.jurusan %></td>
+                    <td style="color:#ddd;"><%= p.tahun_masuk %></td>
+                    <td style="color:#aaa;font-size:.85rem;">
+                      <%= p.tanggal_daftar?.toDate?.()?.toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) || '-' %>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Tombol Cetak PDF -->
+          <div class="p-3 d-flex justify-content-end">
+            <button onclick="cetakPDF()" class="btn btn-red fw-semibold px-4">
+              <i class="bi bi-file-earmark-pdf-fill me-2"></i>Cetak Nama Peserta (PDF)
+            </button>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Area cetak PDF (tersembunyi di layar) ──────────────────────────────── -->
+<div id="areaCetak" style="display:none;">
+  <div style="font-family:'Segoe UI',Arial,sans-serif;padding:32px;color:#000;">
+    <div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #E53535;padding-bottom:16px;">
+      <h2 style="margin:0;font-size:20px;font-weight:700;color:#E53535;">e-HMTI</h2>
+      <h3 style="margin:6px 0 4px;font-size:16px;font-weight:700;">Daftar Peserta Event</h3>
+      <p style="margin:0;font-size:13px;color:#555;"><%= event.nama_event %></p>
+      <p style="margin:2px 0 0;font-size:12px;color:#777;">
+        Lokasi: <%= event.lokasi %> &nbsp;|&nbsp; Peserta: <%= peserta.length %> / <%= event.kuota %>
+      </p>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:#E53535;color:#fff;">
+          <th style="padding:8px 10px;text-align:left;width:40px;">#</th>
+          <th style="padding:8px 10px;text-align:left;">NPM</th>
+          <th style="padding:8px 10px;text-align:left;">Nama</th>
+          <th style="padding:8px 10px;text-align:left;">Jurusan</th>
+          <th style="padding:8px 10px;text-align:left;">Tahun Masuk</th>
+          <th style="padding:8px 10px;text-align:left;">Tanggal Daftar</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% peserta.forEach((p, i) => { %>
+          <tr style="background:<%= i % 2 === 0 ? '#fff' : '#f9f9f9' %>;">
+            <td style="padding:7px 10px;border-bottom:1px solid #eee;"><%= i + 1 %></td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee;font-family:monospace;"><%= p.npm %></td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:600;"><%= p.nama %></td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee;"><%= p.jurusan %></td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee;"><%= p.tahun_masuk %></td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee;">
+              <%= p.tanggal_daftar?.toDate?.()?.toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'}) || '-' %>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+
+    <p style="margin-top:24px;font-size:11px;color:#999;text-align:right;">
+      Dicetak pada: <%= new Date().toLocaleDateString('id-ID', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) %>
+    </p>
+  </div>
+</div>
+
+<script>
+  function cetakPDF() {
+    const konten  = document.getElementById('areaCetak').innerHTML;
+    const jendela = window.open('', '_blank', 'width=900,height=700');
+
+    jendela.document.write(`
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="UTF-8"/>
+        <title>Daftar Peserta — <%= event.nama_event.replace(/'/g, "\\'") %></title>
+        <style>
+          @media print {
+            @page { margin: 15mm; size: A4; }
+            body  { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+          body { margin: 0; padding: 0; }
+        </style>
+      </head>
+      <body>
+        ${konten}
+        <script>
+          window.onload = function () {
+            window.print();
+            window.onafterprint = function () { window.close(); };
+          };
+        <\/script>
+      </body>
+      </html>
+    `);
+    jendela.document.close();
+  }
+</script>
+
+<%- include('../partials/footer') %>

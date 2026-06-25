@@ -1,0 +1,85 @@
+<%- include('../partials/header') %>
+<% const activePage = 'events'; %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar') %>
+
+  <main class="main-content">
+    <div class="topbar mb-4">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1">
+          <li class="breadcrumb-item"><a href="/events" class="text-decoration-none">Manajemen Event</a></li>
+          <li class="breadcrumb-item active">Edit Event</li>
+        </ol>
+      </nav>
+      <h5 class="fw-bold mb-0">Edit Event: <span class="text-primary"><%= event.nama_event %></span></h5>
+    </div>
+
+    <% if (error && error.length) { %>
+      <div class="alert alert-danger alert-dismissible alert-auto-dismiss fade show">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm" style="max-width:680px;">
+      <div class="card-body p-4">
+        <form action="/events/<%= event.id %>?_method=PUT" method="POST" novalidate>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="nama_event">Nama Event <span class="text-danger">*</span></label>
+            <input type="text" id="nama_event" name="nama_event" class="form-control"
+              value="<%= event.nama_event %>" required />
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold" for="tanggal_mulai">Tanggal Mulai <span class="text-danger">*</span></label>
+              <input type="datetime-local" id="tanggal_mulai" name="tanggal_mulai" class="form-control"
+                value="<%= event.tanggal_mulai %>" required />
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold" for="tanggal_selesai">Tanggal Selesai <span class="text-danger">*</span></label>
+              <input type="datetime-local" id="tanggal_selesai" name="tanggal_selesai" class="form-control"
+                value="<%= event.tanggal_selesai %>" required />
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="lokasi">Lokasi <span class="text-danger">*</span></label>
+            <input type="text" id="lokasi" name="lokasi" class="form-control" value="<%= event.lokasi %>" required />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="kuota">Kuota Peserta <span class="text-danger">*</span></label>
+            <input type="number" id="kuota" name="kuota" class="form-control" value="<%= event.kuota %>" min="1" required />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="foto">URL Foto Event</label>
+            <input type="url" id="foto" name="foto" class="form-control" value="<%= event.foto || '' %>" placeholder="https://..." />
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold" for="deskripsi">Deskripsi</label>
+            <textarea id="deskripsi" name="deskripsi" class="form-control" rows="4"><%= event.deskripsi || '' %></textarea>
+          </div>
+
+          <!-- Info peserta -->
+          <div class="alert alert-info d-flex align-items-center gap-2 mb-4 py-2">
+            <i class="bi bi-info-circle-fill text-info"></i>
+            <small>Saat ini terdapat <strong><%= event.peserta_count || 0 %></strong> peserta terdaftar.</small>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-red fw-bold px-4">
+              <i class="bi bi-save me-1"></i> Perbarui
+            </button>
+            <a href="/events" class="btn btn-outline-secondary px-4">Batal</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

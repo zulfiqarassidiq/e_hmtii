@@ -1,0 +1,112 @@
+<%- include('../partials/header') %>
+<% const activePage = 'events'; %>
+
+<div class="app-layout">
+  <%- include('../partials/sidebar') %>
+
+  <main class="main-content">
+    <div class="topbar d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+      <div>
+        <h5 class="fw-bold mb-0">Manajemen Event</h5>
+        <small class="text-muted">Total: <strong><%= events.length %></strong> event</small>
+      </div>
+      <a href="/events/create" class="btn btn-red fw-semibold">
+        <i class="bi bi-plus-lg me-1"></i> Tambah Event
+      </a>
+    </div>
+
+    <!-- Flash -->
+    <% if (success && success.length) { %>
+      <div class="alert alert-success alert-dismissible alert-auto-dismiss fade show">
+        <i class="bi bi-check-circle-fill me-2"></i><%= success[0] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+    <% if (error && error.length) { %>
+      <div class="alert alert-danger alert-dismissible alert-auto-dismiss fade show">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <% if (events.length === 0) { %>
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+          <i class="bi bi-calendar-x text-muted" style="font-size:3rem;"></i>
+          <p class="text-muted mt-2">Belum ada event. Klik "Tambah Event" untuk mulai.</p>
+        </div>
+      </div>
+    <% } else { %>
+      <div class="row g-3">
+        <% events.forEach(ev => {
+          const now       = new Date();
+          const mulai     = ev.tanggal_mulai?.toDate?.() || new Date(0);
+          const selesai   = ev.tanggal_selesai?.toDate?.() || new Date(0);
+          const isActive  = now >= mulai && now <= selesai;
+          const isUpcoming= now < mulai;
+          const isClosed  = now > selesai;
+          const badgeClass = isActive ? 'bg-success' : isUpcoming ? 'bg-primary' : 'bg-secondary';
+          const badgeLabel = isActive ? 'Berlangsung' : isUpcoming ? 'Akan Datang' : 'Selesai';
+          const fillPct    = ev.kuota > 0 ? Math.min(100, Math.round((ev.peserta_count || 0) / ev.kuota * 100)) : 0;
+        %>
+        <div class="col-md-6 col-xl-4">
+          <div class="card border-0 shadow-sm h-100">
+            <% if (ev.foto) { %>
+              <img src="<%= ev.foto %>" class="card-img-top" alt="<%= ev.nama_event %>"
+                style="height:160px;object-fit:cover;" onerror="this.style.display='none'" />
+            <% } else { %>
+              <div class="bg-light d-flex align-items-center justify-content-center" style="height:100px;border-radius:.375rem .375rem 0 0;">
+                <i class="bi bi-calendar-event text-secondary" style="font-size:2.5rem;"></i>
+              </div>
+            <% } %>
+            <div class="card-body d-flex flex-column">
+              <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                <h6 class="fw-bold mb-0 flex-grow-1"><%= ev.nama_event %></h6>
+                <span class="badge <%= badgeClass %> flex-shrink-0"><%= badgeLabel %></span>
+              </div>
+
+              <div class="text-muted small mb-2">
+                <i class="bi bi-geo-alt me-1"></i><%= ev.lokasi %><br/>
+                <i class="bi bi-calendar me-1"></i>
+                <%= mulai.toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'}) %> –
+                <%= selesai.toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'}) %>
+              </div>
+
+              <!-- Kuota progress -->
+              <div class="mb-3">
+                <div class="d-flex justify-content-between small mb-1">
+                  <span class="text-muted">Peserta</span>
+                  <span class="fw-semibold"><%= ev.peserta_count || 0 %> / <%= ev.kuota %></span>
+                </div>
+                <div class="progress" style="height:6px;">
+                  <div class="progress-bar <%= fillPct >= 100 ? 'bg-danger' : 'bg-success' %>"
+                    style="width:<%= fillPct %>%"></div>
+                </div>
+              </div>
+
+              <div class="mt-auto d-flex gap-2">
+                <a href="/events/<%= ev.id %>/peserta" class="btn btn-sm btn-outline-primary flex-grow-1">
+                  <i class="bi bi-people me-1"></i> Peserta
+                </a>
+                <a href="/events/<%= ev.id %>/edit" class="btn btn-sm btn-outline-secondary" title="Edit">
+                  <i class="bi bi-pencil-fill"></i>
+                </a>
+                <form action="/events/<%= ev.id %>?_method=DELETE" method="POST" class="d-inline">
+                  <button type="submit"
+                    class="btn btn-sm btn-outline-danger btn-confirm-delete"
+                    data-confirm="Hapus event '<%= ev.nama_event %>'? Semua data pendaftaran juga akan dihapus."
+                    title="Hapus">
+                    <i class="bi bi-trash-fill"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>
